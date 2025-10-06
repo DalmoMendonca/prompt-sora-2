@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prompt Sora 2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>" />
+  </head>
+  <body>
+    <div class="surface" aria-hidden="true">
+      <div class="halo halo-a"></div>
+      <div class="halo halo-b"></div>
+      <div class="halo halo-c"></div>
+      <div class="texture texture-scan"></div>
+      <div class="texture texture-grid"></div>
+    </div>
+
+    <main class="viewport">
+      <header class="toolbar" aria-label="Primary">
+        <div class="brand">
+          <span class="brand-mark">S2</span>
+          <div class="brand-copy">
+            <span class="brand-name">Prompt Sora 2 Lab</span>
+            <span class="brand-tag">follow @dalmo on sora</span>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <span class="toolbar-pill">PROMPT GENERATOR</span>
+          <a class="toolbar-link" href="https://hiredalmo.com" target="_blank" rel="noreferrer">ABOUT</a>
+        </div>
+      </header>
+
+      <section class="workspace" id="workspace">
+        <section class="panel controls" aria-labelledby="controls-title">
+          <header class="controls-head">
+            <h1 id="controls-title">Optimized Prompts</h1>
+            <p class="controls-copy">Get 4 different prompts to try bringing your idea to reality</p>
+          </header>
+
+          <form id="prompt-form" novalidate>
+            <label class="field field-idea">
+              <span class="field-label">Seed idea</span>
+              <textarea
+                id="idea"
+                name="idea"
+                rows="4"
+                placeholder="Describe the moment, vibe, or storyboard you want to explore..."
+                required
+              ></textarea>
+            </label>
+
+            <div class="select-stack">
+              <label class="field">
+                <select id="test-1" name="test-1" required></select>
+                <small id="test-1-detail" class="field-hint"></small>
+              </label>
+              <label class="field">
+                <select id="test-2" name="test-2" required></select>
+                <small id="test-2-detail" class="field-hint"></small>
+              </label>
+            </div>
+
+            <div class="form-footer">
+              <button type="submit" id="generate-btn">GENERATE VIDEO PROMPTS NOW</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="outputs">
+          <section id="results" class="panel results hidden" aria-live="polite">
+            <div class="results-head">
+              <span class="badge">PROMPT MATRIX</span>
+              <p id="status" class="status"></p>
+            </div>
+            <div id="grid" class="grid" role="grid" aria-live="polite"></div>
+            <div id="preview" class="prompt-preview">
+              <pre id="preview-body"></pre>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <template id="cell-template">
+      <button type="button" class="cell" role="gridcell">
+        <div class="cell-axes">
+          <span class="cell-axis axis-a-option"></span>
+          <span class="cell-axis axis-b-option"></span>
+        </div>
+        <h3 class="cell-title"></h3>
+        <p class="cell-preview"></p>
+      </button>
+    </template>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
+
+
