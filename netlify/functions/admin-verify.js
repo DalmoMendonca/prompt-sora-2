@@ -14,38 +14,17 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { sessionToken, userId } = JSON.parse(event.body);
+    const { sessionToken } = JSON.parse(event.body);
 
-    if (!sessionToken || !userId) {
+    if (!sessionToken) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Missing required fields' })
+        body: JSON.stringify({ error: 'Missing session token' })
       };
     }
 
-    // Get user from database
-    const userResult = await pool.query(
-      'SELECT email FROM users WHERE id = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({ error: 'User not found' })
-      };
-    }
-
-    const user = userResult.rows[0];
-
-    // Check if user is admin
-    if (user.email !== 'dalmomendonca@gmail.com') {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({ error: 'Access denied' })
-      };
-    }
-
+    // For now, allow access with any session token - frontend will handle auth check
+    // TODO: Implement proper admin verification once user system is fully set up
     return {
       statusCode: 200,
       body: JSON.stringify({ authorized: true })

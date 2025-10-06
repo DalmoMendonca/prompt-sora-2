@@ -48,8 +48,7 @@ class AdminDashboard {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          sessionToken: auth.getSessionToken(),
-          userId: user.id
+          sessionToken: auth.getSessionToken()
         })
       });
 
@@ -410,6 +409,55 @@ class AdminDashboard {
 }
 
 // Global functions for HTML onclick handlers
+window.runMigration = async function() {
+  const button = document.getElementById('run-migration-btn');
+  const status = document.getElementById('migration-status');
+  
+  try {
+    button.disabled = true;
+    button.textContent = 'Running Migration...';
+    status.style.display = 'block';
+    status.style.background = '#fef3c7';
+    status.style.color = '#92400e';
+    status.textContent = 'Running database migration...';
+    
+    const response = await fetch('/.netlify/functions/run-migration', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sessionToken: auth.getSessionToken()
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok) {
+      status.style.background = '#d1fae5';
+      status.style.color = '#065f46';
+      status.textContent = result.message;
+      
+      // Reload data after successful migration
+      setTimeout(() => {
+        adminDashboard.loadStats();
+        adminDashboard.loadUsers();
+        adminDashboard.loadPrompts();
+        adminDashboard.loadAnonymousSessions();
+      }, 1000);
+    } else {
+      throw new Error(result.error || 'Migration failed');
+    }
+  } catch (error) {
+    status.style.background = '#fee2e2';
+    status.style.color = '#dc2626';
+    status.textContent = 'Migration failed: ' + error.message;
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Run Database Migration';
+  }
+};
+
 window.applyFilters = function() {
   adminDashboard.filters = {
     dateRange: document.getElementById('date-filter').value,

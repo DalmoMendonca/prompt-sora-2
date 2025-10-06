@@ -271,6 +271,18 @@
       color: #dc2626;
       margin-bottom: 10px;
     }
+
+    /* Override main app styles for admin page */
+    body {
+      overflow: auto !important;
+      height: auto !important;
+      min-height: 100vh !important;
+    }
+
+    .admin-container {
+      min-height: 100vh;
+      padding-bottom: 40px;
+    }
   </style>
 </head>
 <body>
@@ -288,6 +300,10 @@
       <div class="admin-header">
         <h1>Admin Dashboard</h1>
         <p>Comprehensive overview of PromptSora2 usage and analytics</p>
+        <button id="run-migration-btn" onclick="runMigration()" style="margin-top: 15px; padding: 10px 20px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer;">
+          Run Database Migration
+        </button>
+        <div id="migration-status" style="margin-top: 10px; padding: 10px; border-radius: 6px; display: none;"></div>
       </div>
 
       <div class="stats-grid">
