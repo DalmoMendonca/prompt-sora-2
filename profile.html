@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile | Prompt Sora 2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="profile.css" />
+</head>
+<body class="profile-page">
+    <div class="surface" aria-hidden="true">
+      <canvas id="neural-canvas" class="neural-network"></canvas>
+      <div class="halo halo-a"></div>
+      <div class="halo halo-b"></div>
+      <div class="halo halo-c"></div>
+      <div class="texture texture-scan"></div>
+      <div class="texture texture-grid"></div>
+    </div>
+
+    <main class="viewport profile-viewport">
+      <header class="toolbar" aria-label="Primary">
+        <div class="brand">
+          <span class="brand-mark">S2</span>
+          <div class="brand-copy">
+            <span class="brand-name">Prompt Sora 2 Lab</span>
+            <span class="brand-tag">follow @dalmo on sora</span>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div id="credits-display" class="credits-pill">
+            <span class="credits-icon">⚡</span>
+            <span id="credits-text">0/0</span>
+          </div>
+          <a href="/" class="toolbar-link">GENERATOR</a>
+          <div id="user-menu" class="user-menu">
+            <img id="user-avatar" class="user-avatar" src="" alt="">
+            <span id="user-name" class="user-name"></span>
+            <a href="/admin.html" id="admin-link" class="profile-link" style="display: none;">Admin</a>
+            <button id="sign-out-btn" class="sign-out-btn">Sign Out</button>
+          </div>
+        </div>
+      </header>
+
+      <div class="profile-container">
+        <!-- Profile Header -->
+        <section class="profile-header panel">
+          <div class="profile-info">
+            <img id="profile-avatar" class="profile-avatar" src="" alt="">
+            <div class="profile-details">
+              <h1 id="profile-name" class="profile-name">Loading...</h1>
+              <p id="profile-email" class="profile-email">Loading...</p>
+              <div class="account-tier">
+                <span id="tier-badge" class="tier-badge">FREE</span>
+                <span id="tier-description" class="tier-description">5 credits per day</span>
+              </div>
+            </div>
+          </div>
+          <div class="profile-stats">
+            <div class="stat-card">
+              <span class="stat-value" id="total-prompts">0</span>
+              <span class="stat-label">Total Prompts</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value" id="credits-remaining">0</span>
+              <span class="stat-label">Credits Today</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value" id="days-active">0</span>
+              <span class="stat-label">Days Active</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Prompt History -->
+        <section class="prompt-history panel">
+          <div class="section-header">
+            <h2>Prompt History</h2>
+            <div class="history-controls">
+              <input type="text" id="search-prompts" placeholder="Search prompts..." class="search-input">
+              <select id="sort-prompts" class="sort-select">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+              </select>
+            </div>
+          </div>
+          
+          <div id="prompts-loading" class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading your prompts...</p>
+          </div>
+          
+          <div id="prompts-empty" class="empty-state" style="display: none;">
+            <div class="empty-icon">🎬</div>
+            <h3>No prompts yet</h3>
+            <p>Start creating prompts to see them here!</p>
+            <a href="/" class="cta-button">Create Your First Prompt</a>
+          </div>
+          
+          <div id="prompts-grid" class="prompts-grid"></div>
+        </section>
+
+        <!-- Pricing Section -->
+        <section class="pricing-section panel">
+          <div class="section-header">
+            <h2>Upgrade Your Account</h2>
+            <p>Get more credits and unlock premium features</p>
+          </div>
+          
+          <div class="pricing-grid">
+            <div class="pricing-card current">
+              <div class="pricing-header">
+                <h3>Free</h3>
+                <div class="price">$0<span>/month</span></div>
+              </div>
+              <ul class="features">
+                <li>✅ 5 credits per day</li>
+                <li>✅ Basic prompt generation</li>
+                <li>✅ Prompt history</li>
+                <li>❌ Priority support</li>
+                <li>❌ Custom API key</li>
+              </ul>
+              <button class="pricing-btn current-plan" id="current-plan-btn">Current Plan</button>
+            </div>
+            
+            <div class="pricing-card premium">
+              <div class="pricing-badge">Popular</div>
+              <div class="pricing-header">
+                <h3>Premium</h3>
+                <div class="price">$3<span>/month</span></div>
+              </div>
+              <ul class="features">
+                <li>✅ 30 credits per day</li>
+                <li>✅ Priority generation</li>
+                <li>✅ Advanced prompt history</li>
+                <li>✅ Email support</li>
+                <li>✅ Use your own API key</li>
+              </ul>
+              <button class="pricing-btn upgrade-btn" data-tier="premium">
+                Upgrade to Premium
+              </button>
+            </div>
+            
+            <div class="pricing-card pro">
+              <div class="pricing-header">
+                <h3>Pro</h3>
+                <div class="price">$10<span>/month</span></div>
+              </div>
+              <ul class="features">
+                <li>✅ 200 credits per day</li>
+                <li>✅ Unlimited API key usage</li>
+                <li>✅ Advanced analytics</li>
+                <li>✅ Priority support</li>
+                <li>✅ Early access features</li>
+              </ul>
+              <button class="pricing-btn upgrade-btn" data-tier="pro">
+                Upgrade to Pro
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- Coming Soon Modal -->
+    <div id="coming-soon-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>🚀 Coming Soon!</h3>
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Premium and Pro tiers are launching soon with amazing features!</p>
+          <div class="notify-form">
+            <input type="email" id="notify-email" placeholder="Enter your email" class="notify-input">
+            <button id="notify-btn" class="notify-button">Notify Me</button>
+          </div>
+          <p class="notify-success hidden">✅ You'll be notified when we launch!</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prompt Detail Modal -->
+    <div id="prompt-modal" class="modal hidden">
+      <div class="modal-content large">
+        <div class="modal-header">
+          <h3 id="prompt-modal-title">Prompt Details</h3>
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="prompt-details">
+            <div class="prompt-seed">
+              <label>Original Idea:</label>
+              <p id="prompt-seed-text"></p>
+            </div>
+            <div class="prompt-axes">
+              <div class="axis-info">
+                <label>X-Axis:</label>
+                <span id="prompt-axis-a"></span>
+              </div>
+              <div class="axis-info">
+                <label>Y-Axis:</label>
+                <span id="prompt-axis-b"></span>
+              </div>
+            </div>
+            <div class="prompt-grid-display">
+              <div id="modal-prompt-grid" class="modal-grid"></div>
+            </div>
+            <div class="prompt-actions">
+              <button id="regenerate-btn" class="action-btn primary">
+                Regenerate with Same Idea
+              </button>
+              <button id="copy-seed-btn" class="action-btn secondary">
+                Copy Seed Idea
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Neural Network Animation Script -->
+    <script>
+      // Neural network canvas animation (same as main page)
+      const canvas = document.getElementById('neural-canvas');
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        
+        function resizeCanvas() {
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+        }
+        
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        const nodes = [];
+        
+        for (let i = 0; i < 40; i++) {
+          nodes.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: (Math.random() - 0.5) * 0.3,
+            size: Math.random() * 2 + 1,
+            opacity: Math.random() * 0.4 + 0.1
+          });
+        }
+        
+        function animate() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          
+          nodes.forEach(node => {
+            node.x += node.vx;
+            node.y += node.vy;
+            
+            if (node.x < 0 || node.x > canvas.width) node.vx *= -1;
+            if (node.y < 0 || node.y > canvas.height) node.vy *= -1;
+            
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, node.size, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(139, 92, 246, ${node.opacity})`;
+            ctx.fill();
+          });
+          
+          nodes.forEach((node, i) => {
+            nodes.slice(i + 1).forEach(otherNode => {
+              const distance = Math.sqrt(
+                Math.pow(node.x - otherNode.x, 2) + Math.pow(node.y - otherNode.y, 2)
+              );
+              
+              if (distance < 120) {
+                ctx.beginPath();
+                ctx.moveTo(node.x, node.y);
+                ctx.lineTo(otherNode.x, otherNode.y);
+                ctx.strokeStyle = `rgba(139, 92, 246, ${0.08 * (1 - distance / 120)})`;
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+              }
+            });
+          });
+          
+          requestAnimationFrame(animate);
+        }
+        
+        animate();
+      }
+    </script>
+
+    <script type="module" src="profile.js"></script>
+</body>
+</html>

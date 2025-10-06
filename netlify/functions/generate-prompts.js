@@ -1,8 +1,20 @@
+const { Pool } = require('pg');
+
+// Load environment variables in development
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+
 const TESTS = {
   length: {
     id: 'length',
     name: 'Length',
-    options: ['shorter prompt', 'longer prompt'],
+    options: ['shorter prompt (<500 chars)', 'longer prompt (>1500 chars)'],
   },
   vibes: {
     id: 'vibes',
@@ -133,7 +145,7 @@ const SYSTEM_PROMPT = `You are an expert Sora 2 prompt architect. Every output m
 - Specifies audio: BPM or groove, 2-3 sound effects, and optional dialogue under 10 words.
 - Notes loop logic when helpful so last frame can reconnect to the first.
 - Obeys rights and safety: use cameo tags for living people (@username) or swap to fictional/historical/cartoon stand-ins. Avoid trademarks unless generic.
-- Keeps each prompt under 1800 characters.
+- Keeps each prompt under 1900 characters.
 Return responses as JSON only when asked.`;
 
 const TEXT_FORMAT = {
@@ -193,6 +205,7 @@ exports.handler = async (event) => {
   const idea = typeof payload.idea === 'string' ? payload.idea.trim() : '';
   const axisA = normaliseAxis(payload.axisA);
   const axisB = normaliseAxis(payload.axisB);
+  const { sessionToken, userId, useCredit } = payload;
 
   if (!idea) {
     return respond(400, { error: 'Idea is required.' });
@@ -200,6 +213,15 @@ exports.handler = async (event) => {
 
   if (!axisA || !axisB) {
     return respond(400, { error: 'Both axes are required.' });
+  }
+
+  // Use credit before generating if requested
+  if (useCredit) {
+    try {
+      await useCreditDirectly(sessionToken, userId);
+    } catch (error) {
+      return respond(400, { error: error.message });
+    }
   }
 
   const userPrompt = buildUserPrompt(idea, axisA, axisB);
@@ -288,6 +310,7 @@ function buildUserPrompt(idea, axisA, axisB) {
     `Axis B (${axisB.name}) defines the rows: row 0 = ${axisB.options[0]}, row 1 = ${axisB.options[1]}.`,
     'Return JSON with this shape: { "grid": [[{ "title": string, "prompt": string }, ...], [...]] }. grid[0][0] must align with column 0 + row 0 (Axis A option 0 + Axis B option 0); grid[0][1] aligns with column 1 + row 0; grid[1][0] aligns with column 0 + row 1; grid[1][1] aligns with column 1 + row 1.',
     'Each title should be 3-6 words combining the axis choices and hinting at the twist.',
+    'For each quadrant of the matrix, create a unique prompt shaped by the row and column modifiers. Each prompt should be different from all the rest because the user will A/B test the effect of these modifiers on the end result.',
     'Each prompt must obey the system instructions, stay under 1800 characters, and be ready to paste directly into Sora 2. Do not add commentary or markdown.',
   ].join('\n\n');
 }
@@ -393,17 +416,90 @@ function extractResponsePayload(data) {
   return null;
 }
 
+// Credit deduction function
+async function useCreditDirectly(sessionToken, userId) {
+  if (userId) {
+    // Logged in user
+    const userResult = await pool.query(
+      'SELECT account_tier, daily_credits_used, credits_reset_date FROM users WHERE id = $1',
+      [userId]
+    );
 
+    if (userResult.rows.length === 0) {
+      throw new Error('User not found');
+    }
 
+    let user = userResult.rows[0];
 
+    // Reset credits if it's a new day
+    const today = new Date().toISOString().split('T')[0];
+    let creditsUsed = user.daily_credits_used;
+    
+    const resetDate = user.credits_reset_date instanceof Date ? 
+      user.credits_reset_date.toISOString().split('T')[0] : 
+      user.credits_reset_date;
+    
+    if (resetDate !== today) {
+      creditsUsed = 0;
+      await pool.query(
+        'UPDATE users SET daily_credits_used = 0, credits_reset_date = $1 WHERE id = $2',
+        [today, userId]
+      );
+    }
 
+    const creditLimits = {
+      free: 5,
+      premium: 30,
+      pro: 200
+    };
 
+    const limit = creditLimits[user.account_tier] || 0;
+    
+    if (creditsUsed >= limit) {
+      throw new Error('Daily credit limit reached');
+    }
 
+    // Use a credit
+    await pool.query(
+      'UPDATE users SET daily_credits_used = $1 WHERE id = $2',
+      [creditsUsed + 1, userId]
+    );
 
+  } else {
+    // Anonymous user
+    const sessionResult = await pool.query(
+      'SELECT credits_used, expires_at FROM anonymous_sessions WHERE session_token = $1',
+      [sessionToken]
+    );
 
+    let creditsUsed = 0;
+    
+    if (sessionResult.rows.length > 0) {
+      const session = sessionResult.rows[0];
+      if (new Date(session.expires_at) < new Date()) {
+        creditsUsed = 0;
+      } else {
+        creditsUsed = session.credits_used;
+      }
+    }
 
+    const limit = 3;
+    
+    if (creditsUsed >= limit) {
+      throw new Error('Daily credit limit reached. Sign in for more credits!');
+    }
 
-
-
-
-
+    // Use a credit
+    if (sessionResult.rows.length > 0) {
+      await pool.query(
+        'UPDATE anonymous_sessions SET credits_used = $1, expires_at = $2 WHERE session_token = $3',
+        [creditsUsed + 1, new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), sessionToken]
+      );
+    } else {
+      await pool.query(
+        'INSERT INTO anonymous_sessions (session_token, credits_used, ip_address, user_agent) VALUES ($1, 1, $2, $3)',
+        [sessionToken, '127.0.0.1', 'netlify-function']
+      );
+    }
+  }
+}

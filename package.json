@@ -1,0 +1,27 @@
+{
+  "name": "prompt-sora-2",
+  "version": "1.0.0",
+  "description": "AI Video Prompt Generator for Sora 2",
+  "main": "index.html",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'No build step required'",
+    "deploy": "netlify deploy --prod"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "pg": "^8.11.3",
+    "stripe": "^14.9.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  },
+  "keywords": [
+    "ai",
+    "video",
+    "sora",
+    "prompts"
+  ],
+  "author": "Dalmo Mendonca",
+  "license": "MIT"
+}

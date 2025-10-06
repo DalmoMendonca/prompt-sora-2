@@ -1,3 +1,5 @@
+import { auth } from './lib/auth.js';
+
 const TESTS = [
   {
     id: 'length',
@@ -182,12 +184,27 @@ let currentAxis = null;
 let activeCellButton = null;
 let toastTimeout = null;
 
+// Auth elements
+const signInBtn = document.getElementById('sign-in-btn');
+const userMenu = document.getElementById('user-menu');
+const userAvatar = document.getElementById('user-avatar');
+const userName = document.getElementById('user-name');
+const signOutBtn = document.getElementById('sign-out-btn');
+const creditsDisplay = document.getElementById('credits-display');
+const creditsText = document.getElementById('credits-text');
+
 populateSelect(test1Select, DEFAULT_AXIS_A_ID);
 populateSelect(test2Select, DEFAULT_AXIS_B_ID);
 enforceUniqueSelection(test1Select);
 enforceUniqueSelection(test2Select);
 updateTestDetail(test1Select, test1Detail);
 updateTestDetail(test2Select, test2Detail);
+
+// Initialize auth UI
+initializeAuth();
+
+// Check for regeneration data
+checkForRegeneration();
 
 function populateSelect(select, defaultId) {
   select.innerHTML = '';
@@ -265,6 +282,18 @@ form.addEventListener('submit', async (event) => {
   const axisA = TEST_MAP[axisAId];
   const axisB = TEST_MAP[axisBId];
 
+  // Check credits before generating
+  try {
+    const creditCheck = await auth.checkCredits();
+    if (!creditCheck.canUse) {
+      showStatus(`Credit limit reached (${creditCheck.used}/${creditCheck.limit}). ${creditCheck.tier === 'anonymous' ? 'Sign in for more credits!' : 'Upgrade your account for more credits.'}`, true);
+      return;
+    }
+  } catch (error) {
+    showStatus('Failed to check credits. Please try again.', true);
+    return;
+  }
+
   setLoading(true);
   showStatus('Generating...');
   resultsSection.classList.remove('hidden');
@@ -280,6 +309,9 @@ form.addEventListener('submit', async (event) => {
         idea,
         axisA: { id: axisA.id, name: axisA.name, options: axisA.options },
         axisB: { id: axisB.id, name: axisB.name, options: axisB.options },
+        sessionToken: auth.getSessionToken(),
+        userId: auth.getUser()?.id,
+        useCredit: true
       }),
     });
 
@@ -295,9 +327,37 @@ form.addEventListener('submit', async (event) => {
 
     currentGrid = data.grid;
     currentAxis = { axisA: data.axisA || axisA, axisB: data.axisB || axisB };
+    
+    // Save prompt to database for both logged-in and anonymous users
+    try {
+      await fetch('/.netlify/functions/save-prompt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: auth.isSignedIn() ? auth.getUser().id : null,
+          sessionToken: auth.getSessionToken(),
+          seedIdea: idea,
+          axisAId: axisA.id,
+          axisBId: axisB.id,
+          axisAName: axisA.name,
+          axisBName: axisB.name,
+          generatedPrompts: { grid: currentGrid }
+        })
+      });
+    } catch (error) {
+      console.error('Failed to save prompt:', error);
+      // Don't show error to user, just log it
+    }
 
     renderGrid(currentGrid, currentAxis.axisA, currentAxis.axisB);
     showStatus('Tap to copy the full prompt', false, true);
+    
+    // Update credits display with a small delay to ensure database update is complete
+    setTimeout(() => {
+      updateCreditsDisplay();
+    }, 500);
   } catch (error) {
     console.error(error);
     showStatus(error.message || 'Something went wrong. Try again.', true);
@@ -409,4 +469,106 @@ async function extractError(response) {
     // ignore
   }
   return `Request failed (${response.status}).`;
+}
+
+// Auth functions
+function initializeAuth() {
+  // Set up event listeners
+  if (signInBtn) {
+    signInBtn.addEventListener('click', () => {
+      auth.signInWithGoogle();
+    });
+  }
+
+  if (signOutBtn) {
+    signOutBtn.addEventListener('click', () => {
+      auth.signOut();
+    });
+  }
+
+  // Update UI based on auth state
+  updateAuthUI();
+  updateCreditsDisplay();
+}
+
+function updateAuthUI() {
+  const user = auth.getUser();
+  const adminLink = document.getElementById('admin-link');
+  
+  if (user) {
+    // User is signed in
+    signInBtn.style.display = 'none';
+    userMenu.style.display = 'flex';
+    userAvatar.src = user.avatar_url;
+    userName.textContent = user.name;
+    
+    // Show admin link only for admin user
+    if (adminLink) {
+      adminLink.style.display = user.email === 'dalmomendonca@gmail.com' ? 'block' : 'none';
+    }
+  } else {
+    // User is not signed in
+    signInBtn.style.display = 'flex';
+    userMenu.style.display = 'none';
+    
+    // Hide admin link
+    if (adminLink) {
+      adminLink.style.display = 'none';
+    }
+  }
+}
+
+async function updateCreditsDisplay() {
+  try {
+    const credits = await auth.checkCredits();
+    creditsDisplay.style.display = 'flex';
+    creditsText.textContent = `${credits.remaining}/${credits.limit}`;
+    
+    // Update color based on remaining credits
+    if (credits.remaining === 0) {
+      creditsDisplay.style.background = 'rgba(255, 140, 154, 0.1)';
+      creditsDisplay.style.borderColor = 'rgba(255, 140, 154, 0.3)';
+      creditsDisplay.style.color = 'var(--error)';
+    } else if (credits.remaining <= 1) {
+      creditsDisplay.style.background = 'rgba(245, 158, 11, 0.1)';
+      creditsDisplay.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+      creditsDisplay.style.color = 'var(--warning)';
+    } else {
+      creditsDisplay.style.background = 'rgba(87, 224, 165, 0.1)';
+      creditsDisplay.style.borderColor = 'rgba(87, 224, 165, 0.3)';
+      creditsDisplay.style.color = 'var(--success)';
+    }
+  } catch (error) {
+    console.error('Failed to update credits display:', error);
+  }
+}
+
+function checkForRegeneration() {
+  const regenerateData = localStorage.getItem('regenerate_data');
+  if (regenerateData) {
+    try {
+      const data = JSON.parse(regenerateData);
+      
+      // Fill in the form with the regeneration data
+      ideaInput.value = data.idea;
+      test1Select.value = data.axisA;
+      test2Select.value = data.axisB;
+      
+      // Update details
+      updateTestDetail(test1Select, test1Detail);
+      updateTestDetail(test2Select, test2Detail);
+      enforceUniqueSelection(test1Select);
+      enforceUniqueSelection(test2Select);
+      
+      // Clear the regeneration data
+      localStorage.removeItem('regenerate_data');
+      
+      // Show a message
+      showToast('Prompt regenerated from your history!');
+      
+    } catch (error) {
+      console.error('Failed to parse regeneration data:', error);
+      localStorage.removeItem('regenerate_data');
+    }
+  }
 }

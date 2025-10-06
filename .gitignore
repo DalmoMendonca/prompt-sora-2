@@ -1,2 +1,6 @@
 # Local Netlify folder
 .netlify
+node_modules
+README.md
+client_secret_37255784517-pj76t82icodq524t0veianh9gcpa1d5k.apps.googleusercontent.com.json
+.env
