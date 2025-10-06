@@ -72,44 +72,90 @@ exports.handler = async (event, context) => {
       queryParams.push(`%${filters.email}%`);
     }
 
-    // Get total count
-    const countQuery = `
-      SELECT COUNT(*) as count
-      FROM prompts p
-      LEFT JOIN users u ON p.user_id = u.id
-      LEFT JOIN anonymous_sessions a ON p.session_token = a.session_token
-      ${whereClause}
-    `;
-    
-    const countResult = await pool.query(countQuery, queryParams);
-    const totalCount = parseInt(countResult.rows[0].count);
+    let totalCount = 0;
+    let prompts = [];
 
-    // Get prompts with pagination
-    const offset = (page - 1) * pageSize;
-    const promptsQuery = `
-      SELECT 
-        p.id,
-        p.seed_idea,
-        p.axis_a_name,
-        p.axis_b_name,
-        p.credits_used,
-        p.created_at,
-        u.email as user_email,
-        u.name as user_name,
-        CASE 
-          WHEN p.user_id IS NULL THEN p.session_token
-          ELSE NULL
-        END as session_token
-      FROM prompts p
-      LEFT JOIN users u ON p.user_id = u.id
-      LEFT JOIN anonymous_sessions a ON p.session_token = a.session_token
-      ${whereClause}
-      ORDER BY p.created_at DESC
-      LIMIT $${++paramCount} OFFSET $${++paramCount}
-    `;
-    
-    queryParams.push(pageSize, offset);
-    const promptsResult = await pool.query(promptsQuery, queryParams);
+    try {
+      // Check if prompts table exists
+      const tableCheck = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'prompts'
+        );
+      `);
+
+      if (!tableCheck.rows[0].exists) {
+        return {
+          statusCode: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompts: [],
+            totalCount: 0,
+            page,
+            pageSize,
+            totalPages: 0,
+            message: 'Prompts table not found. Please run database setup first.'
+          })
+        };
+      }
+
+      // Get total count
+      const countQuery = `
+        SELECT COUNT(*) as count
+        FROM prompts p
+        LEFT JOIN users u ON p.user_id = u.id
+        ${whereClause}
+      `;
+      
+      const countResult = await pool.query(countQuery, queryParams);
+      totalCount = parseInt(countResult.rows[0].count);
+
+      // Get prompts with pagination
+      const offset = (page - 1) * pageSize;
+      const promptsQuery = `
+        SELECT 
+          p.id,
+          p.seed_idea,
+          p.axis_a_name,
+          p.axis_b_name,
+          p.credits_used,
+          p.created_at,
+          u.email as user_email,
+          u.name as user_name,
+          CASE 
+            WHEN p.user_id IS NULL THEN p.session_token
+            ELSE NULL
+          END as session_token
+        FROM prompts p
+        LEFT JOIN users u ON p.user_id = u.id
+        ${whereClause}
+        ORDER BY p.created_at DESC
+        LIMIT $${++paramCount} OFFSET $${++paramCount}
+      `;
+      
+      queryParams.push(pageSize, offset);
+      const promptsResult = await pool.query(promptsQuery, queryParams);
+      prompts = promptsResult.rows;
+
+    } catch (error) {
+      console.error('Prompts query error:', error);
+      return {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompts: [],
+          totalCount: 0,
+          page,
+          pageSize,
+          totalPages: 0,
+          error: 'Database error: ' + error.message
+        })
+      };
+    }
 
     return {
       statusCode: 200,
@@ -117,7 +163,7 @@ exports.handler = async (event, context) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        prompts: promptsResult.rows,
+        prompts,
         totalCount,
         page,
         pageSize,

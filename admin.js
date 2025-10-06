@@ -409,9 +409,61 @@ class AdminDashboard {
 }
 
 // Global functions for HTML onclick handlers
+window.setupDatabase = async function() {
+  const button = document.getElementById('setup-database-btn');
+  const status = document.getElementById('setup-status');
+  
+  try {
+    button.disabled = true;
+    button.textContent = 'Setting up Database...';
+    status.style.display = 'block';
+    status.style.background = '#fef3c7';
+    status.style.color = '#92400e';
+    status.textContent = 'Creating database tables and indexes...';
+    
+    const response = await fetch('/.netlify/functions/setup-database', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sessionToken: auth.getSessionToken()
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok) {
+      status.style.background = '#d1fae5';
+      status.style.color = '#065f46';
+      status.innerHTML = `
+        <strong>Database setup completed!</strong><br>
+        ${result.details.join('<br>')}
+      `;
+      
+      // Reload data after successful setup
+      setTimeout(() => {
+        adminDashboard.loadStats();
+        adminDashboard.loadUsers();
+        adminDashboard.loadPrompts();
+        adminDashboard.loadAnonymousSessions();
+      }, 1000);
+    } else {
+      throw new Error(result.error || 'Database setup failed');
+    }
+  } catch (error) {
+    status.style.background = '#fee2e2';
+    status.style.color = '#dc2626';
+    status.textContent = 'Database setup failed: ' + error.message;
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Setup Database Tables';
+  }
+};
+
 window.runMigration = async function() {
   const button = document.getElementById('run-migration-btn');
-  const status = document.getElementById('migration-status');
+  const status = document.getElementById('setup-status');
   
   try {
     button.disabled = true;

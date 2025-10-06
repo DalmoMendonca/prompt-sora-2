@@ -57,34 +57,82 @@ exports.handler = async (event, context) => {
       }
     }
 
-    // Get total count
-    const countQuery = `
-      SELECT COUNT(*) as count
-      FROM anonymous_sessions
-      ${whereClause}
-    `;
-    
-    const countResult = await pool.query(countQuery, queryParams);
-    const totalCount = parseInt(countResult.rows[0].count);
+    let totalCount = 0;
+    let sessions = [];
 
-    // Get sessions with pagination
-    const offset = (page - 1) * pageSize;
-    const sessionsQuery = `
-      SELECT 
-        session_token,
-        credits_used,
-        ip_address,
-        user_agent,
-        created_at,
-        expires_at
-      FROM anonymous_sessions
-      ${whereClause}
-      ORDER BY created_at DESC
-      LIMIT $${++paramCount} OFFSET $${++paramCount}
-    `;
-    
-    queryParams.push(pageSize, offset);
-    const sessionsResult = await pool.query(sessionsQuery, queryParams);
+    try {
+      // Check if anonymous_sessions table exists
+      const tableCheck = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'anonymous_sessions'
+        );
+      `);
+
+      if (!tableCheck.rows[0].exists) {
+        return {
+          statusCode: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sessions: [],
+            totalCount: 0,
+            page,
+            pageSize,
+            totalPages: 0,
+            message: 'Anonymous sessions table not found. Please run database setup first.'
+          })
+        };
+      }
+
+      // Get total count
+      const countQuery = `
+        SELECT COUNT(*) as count
+        FROM anonymous_sessions
+        ${whereClause}
+      `;
+      
+      const countResult = await pool.query(countQuery, queryParams);
+      totalCount = parseInt(countResult.rows[0].count);
+
+      // Get sessions with pagination
+      const offset = (page - 1) * pageSize;
+      const sessionsQuery = `
+        SELECT 
+          session_token,
+          credits_used,
+          ip_address,
+          user_agent,
+          created_at,
+          expires_at
+        FROM anonymous_sessions
+        ${whereClause}
+        ORDER BY created_at DESC
+        LIMIT $${++paramCount} OFFSET $${++paramCount}
+      `;
+      
+      queryParams.push(pageSize, offset);
+      const sessionsResult = await pool.query(sessionsQuery, queryParams);
+      sessions = sessionsResult.rows;
+
+    } catch (error) {
+      console.error('Anonymous sessions query error:', error);
+      return {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessions: [],
+          totalCount: 0,
+          page,
+          pageSize,
+          totalPages: 0,
+          error: 'Database error: ' + error.message
+        })
+      };
+    }
 
     return {
       statusCode: 200,
@@ -92,7 +140,7 @@ exports.handler = async (event, context) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        sessions: sessionsResult.rows,
+        sessions,
         totalCount,
         page,
         pageSize,

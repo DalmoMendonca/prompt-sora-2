@@ -69,39 +69,89 @@ exports.handler = async (event, context) => {
       queryParams.push(`%${filters.email}%`);
     }
 
-    // Get total count
-    const countQuery = `
-      SELECT COUNT(*) as count
-      FROM users u
-      LEFT JOIN subscriptions s ON u.id = s.user_id
-      ${whereClause}
-    `;
-    
-    const countResult = await pool.query(countQuery, queryParams);
-    const totalCount = parseInt(countResult.rows[0].count);
+    let totalCount = 0;
+    let users = [];
 
-    // Get users with pagination
-    const offset = (page - 1) * pageSize;
-    const usersQuery = `
-      SELECT 
-        u.id,
-        u.email,
-        u.name,
-        u.account_tier,
-        u.daily_credits_used,
-        u.created_at,
-        s.status as subscription_status,
-        s.tier as subscription_tier,
-        (SELECT MAX(created_at) FROM prompts WHERE user_id = u.id) as last_prompt
-      FROM users u
-      LEFT JOIN subscriptions s ON u.id = s.user_id
-      ${whereClause}
-      ORDER BY u.created_at DESC
-      LIMIT $${++paramCount} OFFSET $${++paramCount}
-    `;
-    
-    queryParams.push(pageSize, offset);
-    const usersResult = await pool.query(usersQuery, queryParams);
+    try {
+      // Check if users table exists
+      const tableCheck = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'users'
+        );
+      `);
+
+      if (!tableCheck.rows[0].exists) {
+        // Users table doesn't exist yet
+        return {
+          statusCode: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            users: [],
+            totalCount: 0,
+            page,
+            pageSize,
+            totalPages: 0,
+            message: 'Users table not found. Please run database migration first.'
+          })
+        };
+      }
+
+      // Get total count
+      const countQuery = `
+        SELECT COUNT(*) as count
+        FROM users u
+        LEFT JOIN subscriptions s ON u.id = s.user_id
+        ${whereClause}
+      `;
+      
+      const countResult = await pool.query(countQuery, queryParams);
+      totalCount = parseInt(countResult.rows[0].count);
+
+      // Get users with pagination
+      const offset = (page - 1) * pageSize;
+      const usersQuery = `
+        SELECT 
+          u.id,
+          u.email,
+          u.name,
+          u.account_tier,
+          u.daily_credits_used,
+          u.created_at,
+          s.status as subscription_status,
+          s.tier as subscription_tier,
+          (SELECT MAX(created_at) FROM prompts WHERE user_id = u.id) as last_prompt
+        FROM users u
+        LEFT JOIN subscriptions s ON u.id = s.user_id
+        ${whereClause}
+        ORDER BY u.created_at DESC
+        LIMIT $${++paramCount} OFFSET $${++paramCount}
+      `;
+      
+      queryParams.push(pageSize, offset);
+      const usersResult = await pool.query(usersQuery, queryParams);
+      users = usersResult.rows;
+
+    } catch (error) {
+      console.error('Users query error:', error);
+      // Return empty result instead of failing
+      return {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          users: [],
+          totalCount: 0,
+          page,
+          pageSize,
+          totalPages: 0,
+          error: 'Database error: ' + error.message
+        })
+      };
+    }
 
     return {
       statusCode: 200,
@@ -109,7 +159,7 @@ exports.handler = async (event, context) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        users: usersResult.rows,
+        users,
         totalCount,
         page,
         pageSize,

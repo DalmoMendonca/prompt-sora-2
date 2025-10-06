@@ -46,58 +46,93 @@ exports.handler = async (event, context) => {
         dateFilter = '';
     }
 
-    // Get total users
-    const totalUsersResult = await pool.query(`
-      SELECT COUNT(*) as count FROM users 
-      WHERE 1=1 ${dateFilter}
-    `);
-
-    // Get total prompts (including anonymous)
-    const totalPromptsResult = await pool.query(`
-      SELECT COUNT(*) as count FROM prompts 
-      WHERE 1=1 ${dateFilter}
-    `);
-
-    // Get credits used today
-    const creditsToday = await pool.query(`
-      SELECT 
-        COALESCE(SUM(u.daily_credits_used), 0) + 
-        COALESCE(SUM(a.credits_used), 0) as total
-      FROM users u
-      FULL OUTER JOIN anonymous_sessions a ON 1=1
-      WHERE (u.credits_reset_date = CURRENT_DATE OR u.credits_reset_date IS NULL)
-        AND (DATE(a.created_at) = CURRENT_DATE OR a.created_at IS NULL)
-    `);
-
-    // Get active subscriptions
-    const activeSubscriptionsResult = await pool.query(`
-      SELECT COUNT(*) as count FROM subscriptions 
-      WHERE status = 'active'
-    `);
-
-    // Get anonymous sessions
-    const anonymousSessionsResult = await pool.query(`
-      SELECT COUNT(*) as count FROM anonymous_sessions 
-      WHERE expires_at > NOW() ${dateFilter}
-    `);
-
-    // Calculate estimated revenue (rough estimate)
-    const revenueResult = await pool.query(`
-      SELECT 
-        COUNT(CASE WHEN tier = 'premium' THEN 1 END) * 3 +
-        COUNT(CASE WHEN tier = 'pro' THEN 1 END) * 10 as revenue
-      FROM subscriptions 
-      WHERE status = 'active'
-    `);
-
-    const stats = {
-      totalUsers: parseInt(totalUsersResult.rows[0].count),
-      totalPrompts: parseInt(totalPromptsResult.rows[0].count),
-      creditsToday: parseInt(creditsToday.rows[0].total) || 0,
-      activeSubscriptions: parseInt(activeSubscriptionsResult.rows[0].count),
-      anonymousSessions: parseInt(anonymousSessionsResult.rows[0].count),
-      estimatedRevenue: parseInt(revenueResult.rows[0].revenue) || 0
+    // Initialize stats with default values
+    let stats = {
+      totalUsers: 0,
+      totalPrompts: 0,
+      creditsToday: 0,
+      activeSubscriptions: 0,
+      anonymousSessions: 0,
+      estimatedRevenue: 0
     };
+
+    try {
+      // Check if tables exist and get counts safely
+      
+      // Get total users
+      try {
+        const totalUsersResult = await pool.query(`
+          SELECT COUNT(*) as count FROM users 
+          WHERE 1=1 ${dateFilter}
+        `);
+        stats.totalUsers = parseInt(totalUsersResult.rows[0].count);
+      } catch (error) {
+        console.log('Users table not found or error:', error.message);
+      }
+
+      // Get total prompts
+      try {
+        const totalPromptsResult = await pool.query(`
+          SELECT COUNT(*) as count FROM prompts 
+          WHERE 1=1 ${dateFilter}
+        `);
+        stats.totalPrompts = parseInt(totalPromptsResult.rows[0].count);
+      } catch (error) {
+        console.log('Prompts table not found or error:', error.message);
+      }
+
+      // Get credits used today
+      try {
+        const creditsToday = await pool.query(`
+          SELECT 
+            COALESCE(SUM(daily_credits_used), 0) as total
+          FROM users
+          WHERE credits_reset_date = CURRENT_DATE
+        `);
+        stats.creditsToday = parseInt(creditsToday.rows[0].total) || 0;
+      } catch (error) {
+        console.log('Credits query error:', error.message);
+      }
+
+      // Get active subscriptions
+      try {
+        const activeSubscriptionsResult = await pool.query(`
+          SELECT COUNT(*) as count FROM subscriptions 
+          WHERE status = 'active'
+        `);
+        stats.activeSubscriptions = parseInt(activeSubscriptionsResult.rows[0].count);
+      } catch (error) {
+        console.log('Subscriptions table not found or error:', error.message);
+      }
+
+      // Get anonymous sessions
+      try {
+        const anonymousSessionsResult = await pool.query(`
+          SELECT COUNT(*) as count FROM anonymous_sessions 
+          WHERE expires_at > NOW() ${dateFilter}
+        `);
+        stats.anonymousSessions = parseInt(anonymousSessionsResult.rows[0].count);
+      } catch (error) {
+        console.log('Anonymous sessions table not found or error:', error.message);
+      }
+
+      // Calculate estimated revenue
+      try {
+        const revenueResult = await pool.query(`
+          SELECT 
+            COUNT(CASE WHEN tier = 'premium' THEN 1 END) * 3 +
+            COUNT(CASE WHEN tier = 'pro' THEN 1 END) * 10 as revenue
+          FROM subscriptions 
+          WHERE status = 'active'
+        `);
+        stats.estimatedRevenue = parseInt(revenueResult.rows[0].revenue) || 0;
+      } catch (error) {
+        console.log('Revenue calculation error:', error.message);
+      }
+
+    } catch (error) {
+      console.log('General stats error:', error.message);
+    }
 
     return {
       statusCode: 200,

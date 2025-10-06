@@ -300,10 +300,15 @@
       <div class="admin-header">
         <h1>Admin Dashboard</h1>
         <p>Comprehensive overview of PromptSora2 usage and analytics</p>
-        <button id="run-migration-btn" onclick="runMigration()" style="margin-top: 15px; padding: 10px 20px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer;">
-          Run Database Migration
-        </button>
-        <div id="migration-status" style="margin-top: 10px; padding: 10px; border-radius: 6px; display: none;"></div>
+        <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+          <button id="setup-database-btn" onclick="setupDatabase()" style="padding: 10px 20px; background: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer;">
+            Setup Database Tables
+          </button>
+          <button id="run-migration-btn" onclick="runMigration()" style="padding: 10px 20px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer;">
+            Run Migration
+          </button>
+        </div>
+        <div id="setup-status" style="margin-top: 10px; padding: 10px; border-radius: 6px; display: none;"></div>
       </div>
 
       <div class="stats-grid">
